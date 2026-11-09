@@ -1,0 +1,102 @@
+:root {
+  --ocean: #a9cde0;
+  --ink: #3f3645;
+  --glass: rgba(251, 248, 242, 0.88);
+  --glass-border: rgba(63, 54, 69, 0.12);
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--ocean);
+  font-family: "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--ink);
+}
+
+body.globe {
+  background: radial-gradient(ellipse at 50% 45%, #22334d 0%, #101827 55%, #070b14 100%);
+}
+
+#map {
+  position: fixed;
+  inset: 0;
+}
+
+/* ---- Two tiny, quiet buttons ---- */
+#controls {
+  position: fixed;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(34px, calc(env(safe-area-inset-bottom) + 30px));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  opacity: 0.55;
+  transition: opacity 0.25s ease;
+  z-index: 2;
+}
+#controls:hover, #controls:focus-within { opacity: 1; }
+
+#controls button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 1px 4px rgba(30, 25, 40, 0.15);
+  cursor: pointer;
+  color: var(--ink);
+}
+#controls button:hover { background: rgba(255, 255, 255, 0.92); }
+#controls button:focus-visible { outline: 2px solid #5d87a3; outline-offset: 2px; }
+#controls svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+body.globe #btn-globe { background: rgba(255, 255, 255, 0.95); }
+
+/* ---- Hover country name ---- */
+#tip {
+  position: fixed;
+  left: 50%;
+  top: max(14px, env(safe-area-inset-top));
+  transform: translate(-50%, -6px);
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  white-space: nowrap;
+  z-index: 2;
+}
+#tip.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---- Attribution: compact and translucent ---- */
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  background: var(--glass);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl { margin: 0 8px 8px 0; }
+.maplibregl-ctrl-attrib a { color: #4d5d6c; }
+
+@media (hover: none) {
+  #controls { opacity: 0.8; }
+  #tip { display: none; }
+}
