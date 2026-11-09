@@ -24,6 +24,22 @@
     </button>
   </div>
 
+  <form id="search" role="search" autocomplete="off">
+    <svg class="s-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
+    <input id="search-input" type="search" enterkeyhint="search" spellcheck="false"
+           placeholder="Search places or coordinates" aria-label="Search for a place, address, or coordinates"
+           aria-controls="chooser-list" aria-autocomplete="list">
+    <span class="s-spin" aria-hidden="true"></span>
+    <button id="search-clear" type="button" aria-label="Clear search" title="Clear">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg>
+    </button>
+    <div id="search-msg" role="status" aria-live="polite"></div>
+    <div id="chooser" hidden>
+      <div id="chooser-title"></div>
+      <ul id="chooser-list" role="listbox" aria-label="Matching places"></ul>
+    </div>
+  </form>
+
   <div id="tip" role="status" aria-live="polite"></div>
 
   <script type="module" src="app.js"></script>

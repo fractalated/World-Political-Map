@@ -1,4 +1,5 @@
 import { buildStyle } from './style.js';
+import { initSearch } from './search.js';
 
 // ---------------------------------------------------------------------------
 // 1. Find the newest Overture Maps boundary release (they publish monthly).
@@ -206,16 +207,21 @@ function countryName(feature) {
   return regionNames?.of(code) || feature.properties['@name'] || code;
 }
 
-function setHover(feature) {
-  const code = feature?.properties.country ?? null;
-  if (code === hovered) return;
-  hovered = code;
+function highlightFilter(code) {
+  if (!map.getLayer('country-hover')) return;
   map.setFilter('country-hover', [
     'all',
     ['match', ['get', 'subtype'], ['country', 'dependency'], true, false],
     ['==', ['get', 'class'], 'land'],
     ['==', ['get', 'country'], code ?? '__none__'],
   ]);
+}
+
+function setHover(feature) {
+  const code = feature?.properties.country ?? null;
+  if (code === hovered) return;
+  hovered = code;
+  highlightFilter(code);
   if (feature) {
     tip.textContent = countryName(feature);
     tip.classList.add('show');
@@ -233,5 +239,19 @@ if (window.matchMedia('(hover: hover)').matches) {
   map.on('mouseout', () => setHover(null));
   map.on('movestart', () => tip.classList.remove('show'));
 }
+
+// ---- Search ----
+let flashTimer;
+initSearch(map, {
+  highlightCountry(code) {
+    clearTimeout(flashTimer);
+    hovered = code;
+    if (map.isStyleLoaded()) highlightFilter(code);
+    else map.once('idle', () => { if (hovered === code) highlightFilter(code); });
+    flashTimer = setTimeout(() => {
+      if (hovered === code) { hovered = null; highlightFilter(null); }
+    }, 4000);
+  },
+});
 
 console.info(`Boundaries: Overture Maps ${overture.release}\nBase map: OpenFreeMap (weekly OpenStreetMap build)`);
