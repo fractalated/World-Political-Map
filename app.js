@@ -1,8 +1,9 @@
-import { buildStyle, LEVELS, levelAt } from './style.js';
+import { buildStyle, LEVELS, levelAt, politicalOpacity } from './style.js';
 import { initSearch } from './search.js';
 import { initAdminColors } from './admin-colors.js';
 import { initLegend, areaName } from './legend.js';
 import { initOwnership } from './ownership.js';
+import { initBasemap } from './basemap.js';
 
 // ---------------------------------------------------------------------------
 // 1. Find the newest Overture Maps boundary release (they publish monthly).
@@ -272,23 +273,32 @@ if (window.matchMedia('(hover: hover)').matches) {
 // ---- Legend ----
 const legend = initLegend(map, { countryName });
 
-// ---- Land ownership & parcels ----
-// While it's on, the political colors step back so agency colors read true.
-const baseOpacity = {};
-function dimPolitical(dim) {
+// ---- Base map view (map / satellite / terrain) and land ownership ----
+// Over imagery, or while agency colors are showing, the political colors step
+// back to a translucent wash.
+const look = { view: 'map', land: false };
+function applyPoliticalOpacity() {
+  let f = 1;
+  let behind = 1;
+  if (look.view === 'satellite') { f = 0.5; behind = 0.3; }
+  else if (look.view === 'terrain') f = 0.82;
+  if (look.land) f *= 0.4;
   for (const l of LEVELS) {
-    if (!map.getLayer(l.fill)) continue;
-    if (!(l.fill in baseOpacity)) baseOpacity[l.fill] = map.getPaintProperty(l.fill, 'fill-opacity') ?? 1;
-    const base = baseOpacity[l.fill];
-    // Zoom curves must stay top-level, so scale their stop values instead.
-    const scaled = typeof base === 'number' ? base * 0.4 : base.map((v, i) => (i > 3 && i % 2 === 0 ? v * 0.4 : v));
-    map.setPaintProperty(l.fill, 'fill-opacity', dim ? scaled : base);
+    if (map.getLayer(l.fill)) map.setPaintProperty(l.fill, 'fill-opacity', politicalOpacity(l, f, behind));
   }
 }
+initBasemap(map, {
+  onChange(view) {
+    look.view = view;
+    applyPoliticalOpacity();
+    legend.showView(view);
+  },
+});
 initOwnership(map, {
   onChange(on) {
+    look.land = on;
     legend.showLand(on);
-    dimPolitical(on);
+    applyPoliticalOpacity();
   },
 });
 

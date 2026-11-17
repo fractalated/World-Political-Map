@@ -10,7 +10,8 @@ adjusts as you go.
 |---|---|---|
 | **Political boundaries** (countries, states/provinces, counties, cities & towns, neighborhoods) | [Overture Maps Foundation](https://overturemaps.org) *divisions* theme, built from OpenStreetMap with quality checks | Each page load reads Overture's [release catalog](https://stac.overturemaps.org/catalog.json) and uses the newest monthly release |
 | Water, highways, cities, place names | [OpenFreeMap](https://openfreemap.org) OpenStreetMap vector tiles | `tiles.openfreemap.org/planet` always points at the latest weekly build |
-| Terrain shading | [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (Mapzen) | Static elevation |
+| Terrain shading and contour lines | [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (Mapzen); contours drawn in the browser by [maplibre-contour](https://github.com/onthegomap/maplibre-contour) | Static elevation |
+| Satellite imagery (optional view) | [Esri World Imagery](https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9) | Esri refreshes the imagery itself |
 
 The Overture Maps Foundation is a Linux Foundation project backed by Amazon,
 Meta, Microsoft and TomTom. Its boundaries come from OpenStreetMap, plus Esri
@@ -60,9 +61,27 @@ at the center of the map (e.g. *United States › Colorado › Douglas County �
 Parker*). The level being colored is highlighted. Click a row to zoom to it.
 Hover the map to see the name of any area at the current level.
 
+## Base map views
+
+The layers button (top of the corner buttons) switches between three views.
+The political colors stay on in all of them:
+
+- **Map**: the normal atlas look.
+- **Satellite**: Esri World Imagery, desaturated and lightened so the colors
+  still read. The colors are laid over it as a see-through wash. Once a finer
+  level takes over (a city inside a county, say), the coarser levels fade almost
+  away, so the street-level photo stays clear.
+- **Terrain**: stronger hill shading, plus contour lines from zoom 10 on, with
+  elevation labels on the bold lines. Spacing tightens as you zoom in: in
+  feet for US visitors (every 100 ft, bold every 500 ft at zoom 12), in meters
+  elsewhere. The legend shows the current spacing.
+
+The chosen view is remembered in the browser. Land ownership works on top of
+any view.
+
 ## Land ownership
 
-The parcel button (top of the three corner buttons) turns on land ownership,
+The parcel button (second of the corner buttons) turns on land ownership,
 using only free public records:
 
 | What | Source | Coverage |
@@ -81,8 +100,8 @@ attribution with the date accessed, which the popup shows.
 
 ## Controls
 
-The map itself has little visible chrome. Three small buttons sit in the
-corner: **land ownership**, **globe/flat** and **zoom to the whole world**,
+The map itself has little visible chrome. Four small buttons sit in the
+corner: **base map view**, **land ownership**, **globe/flat** and **zoom to the whole world**,
 plus the legend at bottom-left (it starts folded on phones). Hover over an
 area to see its name. The URL updates as you move, so any view can be bookmarked or shared.
 
@@ -128,4 +147,5 @@ npm install && npm run colors
 ## Attribution
 
 Boundaries © Overture Maps Foundation · Map data © OpenStreetMap contributors
-(ODbL) · Tiles by OpenFreeMap / OpenMapTiles · Terrain: Mapzen / AWS Terrain Tiles.
+(ODbL) · Tiles by OpenFreeMap / OpenMapTiles · Terrain: Mapzen / AWS Terrain Tiles ·
+Imagery: Esri, Maxar, Earthstar Geographics.

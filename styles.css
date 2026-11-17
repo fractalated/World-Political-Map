@@ -36,6 +36,8 @@ body.globe {
   z-index: 2;
 }
 #controls:hover, #controls:focus-within { opacity: 1; }
+/* The open base-map menu sits above the legend. */
+#controls:has(#view-menu:not([hidden])) { z-index: 4; opacity: 1; }
 
 #controls button {
   width: 32px;
@@ -66,6 +68,60 @@ body.globe {
 body.globe #btn-globe { background: rgba(255, 255, 255, 0.95); }
 #btn-land[aria-pressed="true"] { background: #fff4d6; border-color: rgba(184, 120, 40, 0.45); color: #6b4a1e; }
 body.land #controls { opacity: 0.9; }
+body[data-view="satellite"] #btn-view,
+body[data-view="terrain"] #btn-view { background: rgba(255, 255, 255, 0.95); }
+
+/* ---- Base map menu ---- */
+#view-menu {
+  position: absolute;
+  right: 42px;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: rgba(251, 248, 242, 0.96);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 18px rgba(30, 25, 40, 0.18);
+}
+#view-menu[hidden] { display: none; }
+#controls #view-menu button {
+  width: auto;
+  height: auto;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 12px 5px 5px;
+  border-radius: 8px;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  text-align: left;
+}
+#controls #view-menu button:hover { background: rgba(110, 96, 112, 0.1); }
+#controls #view-menu button[aria-checked="true"] { background: rgba(93, 135, 163, 0.16); font-weight: 600; }
+.vm-thumb {
+  width: 30px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid rgba(60, 50, 70, 0.2);
+  flex: none;
+}
+.vm-map { background: linear-gradient(135deg, #f3bb84 0 38%, #bfd9a1 38% 64%, #a9cde0 64%); }
+.vm-satellite { background: radial-gradient(circle at 30% 35%, #a6ad8b 0 22%, transparent 23%), linear-gradient(140deg, #8e9a74 0 45%, #b8a98a 45% 70%, #7f9fb1 70%); }
+.vm-terrain {
+  background:
+    repeating-radial-gradient(circle at 60% 55%, transparent 0 4px, rgba(140, 106, 74, 0.55) 4px 5px),
+    linear-gradient(135deg, #f1e5cf, #d9c9ad);
+}
 
 /* ---- Hover country name ---- */
 #tip {

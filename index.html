@@ -16,6 +16,10 @@
   <div id="map" aria-label="World political map"></div>
 
   <div id="controls" aria-label="Map controls">
+    <button id="btn-view" type="button" title="Base map: Map" aria-label="Choose base map: map, satellite or terrain" aria-haspopup="menu" aria-expanded="false" aria-controls="view-menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5z"/><path d="m3 12 9 5 9-5M3 16l9 5 9-5"/></svg>
+    </button>
+    <div id="view-menu" role="menu" aria-label="Base map" hidden></div>
     <button id="btn-land" type="button" title="Show land ownership" aria-label="Show land ownership and parcels" aria-pressed="false">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="M4 11h7v8M11 11l5-6M11 11h9"/></svg>
     </button>
@@ -54,6 +58,7 @@
       <div id="legend-swatches" aria-hidden="true"></div>
       <ol id="legend-rows"></ol>
       <p class="lg-note">Neighbors never share a color. Zoom in for finer borders.</p>
+      <p id="legend-view" class="lg-note" hidden></p>
       <div id="legend-land" hidden>
         <h3>Land ownership</h3>
         <ul id="legend-agencies"></ul>

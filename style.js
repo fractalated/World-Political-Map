@@ -99,6 +99,19 @@ function countryFill(colors, palette = PALETTE, unknown = UNKNOWN_FILL) {
   return match;
 }
 
+// How strongly a level's colors are drawn. `f` is the strength while the level
+// is in focus; once a finer level takes over it drops to `f * behind`. In the
+// atlas view `behind` is 1 (opaque layers simply cover each other), but over
+// satellite imagery the stacked tints would add up and bury the photo.
+export function politicalOpacity(level, f = 1, behind = 1) {
+  const i = LEVELS.indexOf(level);
+  const s = level.start;
+  const next = LEVELS[i + 1];
+  const stops = s === 0 ? [0, f] : [s, 0, s + 0.5, f];
+  if (next && behind !== 1) stops.push(next.start + 0.3, f, next.start + 1.3, f * behind);
+  return stops.length === 2 ? f : lin(...stops);
+}
+
 // One fill layer per sub-national level.
 function adminFill(level, next) {
   const s = level.start;
@@ -115,7 +128,7 @@ function adminFill(level, next) {
     layout: { 'fill-sort-key': ['index-of', ['get', 'subtype'], ['literal', level.subtypes]] },
     paint: {
       'fill-color': color,
-      'fill-opacity': lin(s, 0, s + 0.5, 1),
+      'fill-opacity': politicalOpacity(level),
       'fill-antialias': false,
     },
   };

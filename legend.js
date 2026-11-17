@@ -5,6 +5,7 @@
 
 import { LEVELS, PALETTE, levelAt } from './style.js';
 import { AGENCIES } from './ownership.js';
+import { contourSpacing } from './basemap.js';
 
 // Border sample for each level, matching the line styles in style.js.
 const LINE = {
@@ -122,8 +123,25 @@ export function initLegend(map, { countryName }) {
     clearTimeout(dataTimer);
     dataTimer = setTimeout(schedule, 250);
   });
+  // A line about the base map in use (satellite credit, contour spacing).
+  const viewNote = document.getElementById('legend-view');
+  let view = 'map';
+  function updateView() {
+    if (view === 'satellite') {
+      viewNote.textContent = 'Satellite imagery from Esri, softened so the colors still read.';
+    } else if (view === 'terrain') {
+      const c = contourSpacing(map.getZoom());
+      viewNote.textContent = c
+        ? `Contour lines every ${c.minor.toLocaleString()} ${c.unit}, bold every ${c.major.toLocaleString()} ${c.unit}.`
+        : 'Hill shading shows the terrain. Zoom in for contour lines.';
+    }
+    viewNote.hidden = view === 'map';
+  }
+  map.on('zoomend', updateView);
+
   return {
     update: schedule,
     showLand(on) { document.getElementById('legend-land').hidden = !on; },
+    showView(v) { view = v; updateView(); },
   };
 }
