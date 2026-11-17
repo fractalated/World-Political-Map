@@ -16,6 +16,9 @@
   <div id="map" aria-label="World political map"></div>
 
   <div id="controls" aria-label="Map controls">
+    <button id="btn-land" type="button" title="Show land ownership" aria-label="Show land ownership and parcels" aria-pressed="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="M4 11h7v8M11 11l5-6M11 11h9"/></svg>
+    </button>
     <button id="btn-globe" type="button" title="Switch to globe view" aria-label="Toggle globe view">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg>
     </button>
@@ -40,7 +43,24 @@
     </div>
   </form>
 
-  <div id="tip" role="status" aria-live="polite"></div>
+  <div id="tip" role="status" aria-live="polite"><b></b><small></small></div>
+
+  <section id="legend" aria-label="Map legend">
+    <button id="legend-toggle" type="button" aria-expanded="true" aria-controls="legend-body">
+      <span id="legend-caption">Colors: countries</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 14l5-5 5 5"/></svg>
+    </button>
+    <div id="legend-body">
+      <div id="legend-swatches" aria-hidden="true"></div>
+      <ol id="legend-rows"></ol>
+      <p class="lg-note">Neighbors never share a color. Zoom in for finer borders.</p>
+      <div id="legend-land" hidden>
+        <h3>Land ownership</h3>
+        <ul id="legend-agencies"></ul>
+        <p class="lg-note">Click any land for its owner. Parcel lines show up close in for Colorado; owner lookups also work in WI, NC, FL, VT, MT and MA.</p>
+      </div>
+    </div>
+  </section>
 
   <script type="module" src="app.js"></script>
 </body>

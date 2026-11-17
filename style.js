@@ -18,6 +18,41 @@ export const PALETTE = [
 ];
 const UNKNOWN_FILL = '#e9dcc4';
 
+// The administrative levels, from countries down to neighborhoods. Each level
+// becomes the "focus" (bright palette colors, shown in the legend) from its
+// `start` zoom until the next level takes over; after that it fades to a pale
+// wash under the finer level, so you can still tell where it is.
+export const LEVELS = [
+  { key: 'country', name: 'Country', plural: 'Countries', start: 0, subtypes: ['country', 'dependency'], fill: 'country-fill' },
+  { key: 'region', name: 'State / province', plural: 'States & provinces', start: 4, subtypes: ['region'], fill: 'admin-fill-region' },
+  { key: 'county', name: 'County / district', plural: 'Counties & districts', start: 8, subtypes: ['county'], fill: 'admin-fill-county' },
+  { key: 'locality', name: 'City / town', plural: 'Cities & towns', start: 10.3, subtypes: ['localadmin', 'locality', 'borough'], fill: 'admin-fill-locality' },
+  { key: 'hood', name: 'Neighborhood', plural: 'Neighborhoods', start: 12.3, subtypes: ['macrohood', 'neighborhood'], fill: 'admin-fill-hood' },
+];
+export const levelAt = (zoom) => LEVELS.reduce((cur, l) => (zoom >= l.start ? l : cur), LEVELS[0]);
+
+// Mix a palette color toward the plain land color (t = 0 keeps it, 1 = land).
+function mix(hex, t, toward = '#f3efe6') {
+  const a = hex.match(/\w\w/g).map((h) => parseInt(h, 16));
+  const b = toward.match(/\w\w/g).map((h) => parseInt(h, 16));
+  return '#' + a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+const SOFT = PALETTE.map((c) => mix(c, 0.35)); // focus level at street zoom
+const PALE = PALETTE.map((c) => mix(c, 0.68)); // a level that is no longer the focus
+
+// Sub-national areas get their palette slot from admin-colors.js, which picks a
+// slot no neighbor uses and stores it as feature-state "c". Until it has run,
+// a slot hashed from the feature id is used (the same hash admin-colors.js
+// prefers, so most areas never change color).
+export const SLOT_HASH_DIVISOR = 1e9;
+const SLOT = ['coalesce', ['feature-state', 'c'], ['%', ['floor', ['/', ['to-number', ['id'], 0], SLOT_HASH_DIVISOR]], PALETTE.length]];
+const bySlot = (colors) => {
+  const m = ['match', SLOT];
+  colors.slice(0, -1).forEach((c, i) => m.push(i, c));
+  m.push(colors[colors.length - 1]);
+  return m;
+};
+
 const C = {
   land: '#f3efe6',
   ocean: '#a9cde0',
@@ -29,6 +64,9 @@ const C = {
   border: '#6e6070',
   borderCasing: '#fbf8f2',
   state: '#8f8296',
+  county: '#9d90a3',
+  locality: '#a497aa',
+  hood: '#ab9fb1',
   ink: '#3f3645',
   inkSoft: '#6a5f70',
   halo: 'rgba(251, 248, 242, 0.92)',
@@ -52,13 +90,50 @@ const FONT = {
 const ramp = (...stops) => ['interpolate', ['exponential', 1.5], ['zoom'], ...stops];
 const lin = (...stops) => ['interpolate', ['linear'], ['zoom'], ...stops];
 
-function countryFill(colors) {
+function countryFill(colors, palette = PALETTE, unknown = UNKNOWN_FILL) {
   const entries = Object.entries(colors || {});
-  if (!entries.length) return UNKNOWN_FILL;
+  if (!entries.length) return unknown;
   const match = ['match', ['get', 'country']];
-  for (const [code, slot] of entries) match.push(code, PALETTE[slot % PALETTE.length]);
-  match.push(UNKNOWN_FILL);
+  for (const [code, slot] of entries) match.push(code, palette[slot % palette.length]);
+  match.push(unknown);
   return match;
+}
+
+// One fill layer per sub-national level.
+function adminFill(level, next) {
+  const s = level.start;
+  const color = next
+    ? ['interpolate', ['linear'], ['zoom'], next.start + 0.3, bySlot(PALETTE), next.start + 1.3, bySlot(PALE)]
+    : ['interpolate', ['linear'], ['zoom'], s + 0.5, bySlot(PALETTE), 15.5, bySlot(SOFT)];
+  return {
+    id: level.fill,
+    type: 'fill',
+    source: 'divisions',
+    'source-layer': 'division_area',
+    minzoom: s - 0.01,
+    filter: ['all', ['==', ['get', 'class'], 'land'], ['match', ['get', 'subtype'], level.subtypes, true, false]],
+    layout: { 'fill-sort-key': ['index-of', ['get', 'subtype'], ['literal', level.subtypes]] },
+    paint: {
+      'fill-color': color,
+      'fill-opacity': lin(s, 0, s + 0.5, 1),
+      'fill-antialias': false,
+    },
+  };
+}
+
+// Outline of a sub-national level drawn from its areas (Overture only ships
+// separate border lines for countries, states and counties).
+function adminOutline(id, level, paint) {
+  return {
+    id,
+    type: 'line',
+    source: 'divisions',
+    'source-layer': 'division_area',
+    minzoom: level.start - 0.6,
+    filter: ['all', ['==', ['get', 'class'], 'land'], ['match', ['get', 'subtype'], level.subtypes, true, false]],
+    layout: { 'line-join': 'round' },
+    paint,
+  };
 }
 
 export function buildStyle({ overtureUrl, overtureRelease, colors }) {
@@ -116,8 +191,9 @@ export function buildStyle({ overtureUrl, overtureRelease, colors }) {
         'source-layer': 'division_area',
         filter: isCountryArea,
         paint: {
-          'fill-color': countryFill(colors),
-          'fill-opacity': lin(0, 1, 5, 1, 8, 0.82, 11, 0.55, 14, 0.38),
+          'fill-color': ['interpolate', ['linear'], ['zoom'],
+            LEVELS[1].start + 0.3, countryFill(colors),
+            LEVELS[1].start + 1.3, countryFill(colors, PALE, mix(UNKNOWN_FILL, 0.68))],
           'fill-antialias': false,
         },
       },
@@ -129,6 +205,7 @@ export function buildStyle({ overtureUrl, overtureRelease, colors }) {
         filter: ['all', isCountryArea, ['==', ['get', 'country'], '__none__']],
         paint: { 'fill-color': '#ffffff', 'fill-opacity': lin(0, 0.35, 8, 0.2, 10, 0) },
       },
+      ...LEVELS.slice(1).map((l, i) => adminFill(l, LEVELS[i + 2])),
 
       {
         id: 'ice',
@@ -145,7 +222,7 @@ export function buildStyle({ overtureUrl, overtureRelease, colors }) {
         'source-layer': 'landuse',
         minzoom: 8,
         filter: ['match', ['get', 'class'], ['residential', 'suburb', 'neighbourhood', 'commercial', 'retail', 'industrial'], true, false],
-        paint: { 'fill-color': C.urban, 'fill-opacity': lin(8, 0, 9, 0.5, 13, 0.65) },
+        paint: { 'fill-color': C.urban, 'fill-opacity': lin(8, 0, 9, 0.3, 13, 0.42) },
       },
       {
         id: 'park',
@@ -258,7 +335,33 @@ export function buildStyle({ overtureUrl, overtureRelease, colors }) {
         },
       },
 
-      // ---------- Political boundaries (Overture) ----------
+      // ---------- Political boundaries (Overture), finest first ----------
+      adminOutline('hood-outline', LEVELS[4], {
+        'line-color': C.hood,
+        'line-width': lin(12, 0.5, 16, 1.3),
+        'line-opacity': lin(11.7, 0, 12.4, 0.8),
+        'line-dasharray': [1.5, 1.8],
+      }),
+      adminOutline('locality-outline', LEVELS[3], {
+        'line-color': C.locality,
+        'line-width': lin(10, 0.5, 13, 1.1, 16, 1.8),
+        'line-opacity': lin(9.7, 0, 10.4, 0.85),
+      }),
+      {
+        id: 'county-border',
+        type: 'line',
+        source: 'divisions',
+        'source-layer': 'division_boundary',
+        minzoom: 7.6,
+        filter: ['all', ['==', ['get', 'subtype'], 'county'], ['==', ['get', 'class'], 'land']],
+        layout: { 'line-join': 'round' },
+        paint: {
+          'line-color': C.county,
+          'line-width': lin(8, 0.6, 10, 1, 14, 1.8),
+          'line-opacity': lin(7.6, 0, 8.3, 0.85),
+          'line-dasharray': [5, 1.5],
+        },
+      },
       {
         id: 'state-border',
         type: 'line',
@@ -325,6 +428,16 @@ export function buildStyle({ overtureUrl, overtureRelease, colors }) {
           'line-opacity': 0.85,
           'line-dasharray': [2, 1.6],
         },
+      },
+
+      {
+        id: 'admin-hover',
+        type: 'line',
+        source: 'divisions',
+        'source-layer': 'division_area',
+        filter: ['==', ['id'], -1],
+        layout: { 'line-join': 'round' },
+        paint: { 'line-color': C.ink, 'line-width': 2.4, 'line-opacity': 0.55 },
       },
 
       // ---------- Labels ----------
@@ -510,6 +623,25 @@ export function buildStyle({ overtureUrl, overtureRelease, colors }) {
           'symbol-sort-key': ['+', ['to-number', ['get', 'rank'], 9], ['match', ['get', 'capital'], 2, -5, 0]],
         },
         paint: { 'text-color': C.ink, 'text-halo-color': C.halo, 'text-halo-width': 1.5 },
+      },
+      {
+        id: 'label-county',
+        type: 'symbol',
+        source: 'divisions',
+        'source-layer': 'division',
+        minzoom: 8,
+        maxzoom: 11,
+        filter: ['==', ['get', 'subtype'], 'county'],
+        layout: {
+          'text-field': ['get', '@name'],
+          'text-font': FONT.italic,
+          'text-size': lin(8, 10, 10.5, 12),
+          'text-transform': 'uppercase',
+          'text-letter-spacing': 0.1,
+          'text-max-width': 7,
+          'text-padding': 6,
+        },
+        paint: { 'text-color': C.county, 'text-halo-color': C.halo, 'text-halo-width': 1.1, 'text-opacity': lin(8, 0, 8.5, 0.95, 10.5, 0.95, 11, 0) },
       },
       {
         id: 'label-state',

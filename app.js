@@ -1,5 +1,8 @@
-import { buildStyle } from './style.js';
+import { buildStyle, LEVELS, levelAt } from './style.js';
 import { initSearch } from './search.js';
+import { initAdminColors } from './admin-colors.js';
+import { initLegend, areaName } from './legend.js';
+import { initOwnership } from './ownership.js';
 
 // ---------------------------------------------------------------------------
 // 1. Find the newest Overture Maps boundary release (they publish monthly).
@@ -191,12 +194,18 @@ window.addEventListener('resize', () => {
   if (!globe) map.setMinZoom(worldFitZoom());
 });
 
-// ---- Hover: gently highlight a country and show its name ----
+// ---- Colors for states, counties, cities, neighborhoods ----
+initAdminColors(map);
+
+// ---- Hover: highlight the area at the level in focus and show its name ----
 const tip = document.getElementById('tip');
+const tipName = tip.querySelector('b');
+const tipKind = tip.querySelector('small');
 const regionNames = (() => {
   try { return new Intl.DisplayNames(['en'], { type: 'region' }); } catch { return null; }
 })();
-let hovered = null;
+let hovered = null; // country code being highlighted
+let hoveredArea = null; // sub-national feature id being outlined
 
 function countryName(feature) {
   const code = feature.properties.country;
@@ -217,13 +226,24 @@ function highlightFilter(code) {
   ]);
 }
 
-function setHover(feature) {
-  const code = feature?.properties.country ?? null;
-  if (code === hovered) return;
-  hovered = code;
-  highlightFilter(code);
-  if (feature) {
-    tip.textContent = countryName(feature);
+function outlineArea(id) {
+  if (id === hoveredArea || !map.getLayer('admin-hover')) return;
+  hoveredArea = id;
+  map.setFilter('admin-hover', ['==', ['id'], id ?? -1]);
+}
+
+function setHover(feature, level) {
+  const isCountry = level?.key === 'country';
+  const code = feature && isCountry ? feature.properties.country : null;
+  if (code !== hovered) {
+    hovered = code;
+    highlightFilter(code);
+  }
+  outlineArea(feature && !isCountry ? feature.id : null);
+  const name = feature ? (isCountry ? countryName(feature) : areaName(feature.properties)) : '';
+  if (name) {
+    tipName.textContent = name;
+    tipKind.textContent = isCountry ? '' : level.name;
     tip.classList.add('show');
   } else {
     tip.classList.remove('show');
@@ -232,13 +252,45 @@ function setHover(feature) {
 
 if (window.matchMedia('(hover: hover)').matches) {
   map.on('mousemove', (e) => {
-    if (map.getZoom() > 9) return setHover(null);
-    const f = map.queryRenderedFeatures(e.point, { layers: ['country-fill'] })[0];
-    setHover(f || null);
+    // The finest area under the pointer, up to the level in focus (outside
+    // city limits, say, that's the county).
+    const fi = LEVELS.indexOf(levelAt(map.getZoom()));
+    const layers = LEVELS.slice(0, fi + 1).map((l) => l.fill).filter((id) => map.getLayer(id));
+    const rank = (f) => {
+      const li = LEVELS.findIndex((l) => l.fill === f.layer.id);
+      return li * 10 + LEVELS[li].subtypes.indexOf(f.properties.subtype);
+    };
+    const hits = map.queryRenderedFeatures(e.point, { layers });
+    hits.sort((a, b) => rank(b) - rank(a));
+    const f = hits[0] || null;
+    setHover(f, f && LEVELS.find((l) => l.fill === f.layer.id));
   });
   map.on('mouseout', () => setHover(null));
   map.on('movestart', () => tip.classList.remove('show'));
 }
+
+// ---- Legend ----
+const legend = initLegend(map, { countryName });
+
+// ---- Land ownership & parcels ----
+// While it's on, the political colors step back so agency colors read true.
+const baseOpacity = {};
+function dimPolitical(dim) {
+  for (const l of LEVELS) {
+    if (!map.getLayer(l.fill)) continue;
+    if (!(l.fill in baseOpacity)) baseOpacity[l.fill] = map.getPaintProperty(l.fill, 'fill-opacity') ?? 1;
+    const base = baseOpacity[l.fill];
+    // Zoom curves must stay top-level, so scale their stop values instead.
+    const scaled = typeof base === 'number' ? base * 0.4 : base.map((v, i) => (i > 3 && i % 2 === 0 ? v * 0.4 : v));
+    map.setPaintProperty(l.fill, 'fill-opacity', dim ? scaled : base);
+  }
+}
+initOwnership(map, {
+  onChange(on) {
+    legend.showLand(on);
+    dimPolitical(on);
+  },
+});
 
 // ---- Search ----
 let flashTimer;

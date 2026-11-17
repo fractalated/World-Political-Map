@@ -8,7 +8,7 @@ adjusts as you go.
 
 | Layer | Source | How it stays current |
 |---|---|---|
-| **Country & territory boundaries** (fills, borders, disputed borders, states/provinces) | [Overture Maps Foundation](https://overturemaps.org) *divisions* theme, built from OpenStreetMap with quality checks | Each page load reads Overture's [release catalog](https://stac.overturemaps.org/catalog.json) and uses the newest monthly release |
+| **Political boundaries** (countries, states/provinces, counties, cities & towns, neighborhoods) | [Overture Maps Foundation](https://overturemaps.org) *divisions* theme, built from OpenStreetMap with quality checks | Each page load reads Overture's [release catalog](https://stac.overturemaps.org/catalog.json) and uses the newest monthly release |
 | Water, highways, cities, place names | [OpenFreeMap](https://openfreemap.org) OpenStreetMap vector tiles | `tiles.openfreemap.org/planet` always points at the latest weekly build |
 | Terrain shading | [AWS Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (Mapzen) | Static elevation |
 
@@ -29,18 +29,62 @@ away regardless, in a neutral color until the next refresh.
 
 ## What appears at each zoom level
 
-- **World (0–3):** countries, country names, oceans, polar ice, soft terrain
-- **Continent (3–6):** state/province borders, capitals and major cities, motorways
-- **Region (6–10):** trunk highways with route shields, towns, rivers, urban areas
-- **City (10–16):** primary roads, road names, neighborhoods, parks, waterways
+The map colors one level of government at a time, and the level follows your
+zoom. Neighbors at that level never share a color. Coarser levels stay
+underneath as pale washes of their own hue, with their borders drawn heavier,
+so you can always tell what's inside what.
 
-Smaller streets are left out on purpose.
+| Zoom | Colored level | Also appears |
+|---|---|---|
+| 0–4 | Countries | country names, oceans, polar ice, soft terrain |
+| 4–8 | States & provinces | state borders, capitals and major cities, motorways |
+| 8–10.3 | Counties & districts | county borders and names, trunk highways, towns, rivers |
+| 10.3–12.3 | Cities & towns | city limits, primary roads, villages, urban areas |
+| 12.3+ | Neighborhoods | neighborhood outlines, road names, parks, waterways |
+
+How deep it goes depends on what OpenStreetMap has mapped. Most of the US,
+Europe and Japan have city limits, and many big cities have neighborhoods.
+Where a level is missing, the next level up shows through.
+
+Countries take their colors from `data/country-colors.json`. Smaller areas are
+far too numerous for a prebuilt file, so `admin-colors.js` colors them in the
+browser for whatever is on screen. It finds neighbors from shared border
+points in the tiles, then gives each area the color its id hashes to, unless a
+neighbor already has it. Colors stay put as you pan.
+
+### The legend
+
+The panel in the bottom-left corner is both the key and a "where am I"
+readout. Each row is one level, with its border style and the name of the area
+at the center of the map (e.g. *United States › Colorado › Douglas County ›
+Parker*). The level being colored is highlighted. Click a row to zoom to it.
+Hover the map to see the name of any area at the current level.
+
+## Land ownership
+
+The parcel button (top of the three corner buttons) turns on land ownership,
+using only free public records:
+
+| What | Source | Coverage |
+|---|---|---|
+| Public land shading, by managing agency | [BLM Surface Management Agency](https://www.blm.gov/services/geospatial) map tiles | All US |
+| Public land details on click (unit, manager, public access) | [USGS PAD-US 4.1](https://www.usgs.gov/programs/gap-analysis-project/science/pad-us-data-overview) | All US |
+| Parcel lines | [State of Colorado public parcels](https://gis.colorado.gov/public/rest/services/Address_and_Parcel) | 44 of Colorado's 64 counties |
+| Parcel owner, address, acres, parcel ID on click | Statewide parcel services | Colorado, Wisconsin, North Carolina, Florida, Vermont, Montana, Massachusetts |
+
+Click any land to see who owns or manages it; the parcel is outlined in red.
+There is no free nationwide parcel source with owner names, so elsewhere
+you'll see public land only. More states can be added to the `STATES` list in
+`ownership.js`: each needs a keyless ArcGIS query URL and a field mapping.
+Parcel records are public records, not surveys. Colorado's data asks for
+attribution with the date accessed, which the popup shows.
 
 ## Controls
 
-The map itself has almost no visible chrome. Two small buttons sit in the
-corner: **globe/flat** and **zoom to the whole world**. Hover over a country to
-see its name. The URL updates as you move, so any view can be bookmarked or shared.
+The map itself has little visible chrome. Three small buttons sit in the
+corner: **land ownership**, **globe/flat** and **zoom to the whole world**,
+plus the legend at bottom-left (it starts folded on phones). Hover over an
+area to see its name. The URL updates as you move, so any view can be bookmarked or shared.
 
 ## Search
 
