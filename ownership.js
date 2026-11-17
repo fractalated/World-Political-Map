@@ -371,16 +371,20 @@ export function initOwnership(map, { onChange } = {}) {
 
     const inBox = (b) => lngLat.lng >= b[0] && lngLat.lng <= b[2] && lngLat.lat >= b[1] && lngLat.lat <= b[3];
     const states = STATES.filter((s) => inBox(s.bbox));
-    const [parcels, pub] = await Promise.all([
+    let [parcels, pub] = await Promise.all([
       Promise.all(states.map((s) => queryPoint(s.url, lngLat, { signal })
         .then((fs) => ({ state: s, features: fs }))
-        .catch(() => ({ state: s, features: [] })))),
-      queryPoint(PADUS, lngLat, { geometry: false, signal }).catch(() => []),
+        .catch(() => ({ state: s, features: [], failed: true })))),
+      queryPoint(PADUS, lngLat, { geometry: false, signal }).catch(() => null),
     ]);
     if (signal.aborted) return;
+    // A server being down is not the same as "nothing here"; say which it is.
+    const down = parcels.filter((p) => p.failed).map((p) => p.state.state);
+    const pubDown = pub === null;
 
     body.textContent = '';
     const hit = parcels.find((p) => p.features.length);
+    if (pubDown) pub = [];
     // Largest unit first (a wilderness inside a national forest, say, lists the forest).
     pub.sort((a, b) => (b.properties.GIS_Acres || 0) - (a.properties.GIS_Acres || 0));
     const seen = new Set();
@@ -402,7 +406,21 @@ export function initOwnership(map, { onChange } = {}) {
     const srcs = [...body.querySelectorAll('.own-src')];
     srcs.forEach((n, i) => { if (srcs.slice(i + 1).some((m) => m.textContent === n.textContent)) n.remove(); });
     if (hit) map.getSource('own-pick')?.setData({ type: 'FeatureCollection', features: hit.features.filter((f) => f.geometry) });
-    if (!hit && !pub.length) {
+    if (!hit && down.length) {
+      const box = el('section', 'own-sec own-down');
+      box.append(el('span', 'own-chip', 'Records unavailable'));
+      box.append(el('b', 'own-title', `${down.join(' and ')} parcel service isn’t responding`));
+      box.append(el('div', 'own-sub', 'The state’s server is down or busy, so owner details can’t be shown right now. Try again later.'));
+      body.prepend(box);
+    }
+    if (pubDown) {
+      const box = el('section', 'own-sec own-down');
+      box.append(el('span', 'own-chip', 'Records unavailable'));
+      box.append(el('b', 'own-title', 'Public land lookup isn’t responding'));
+      box.append(el('div', 'own-sub', 'The USGS PAD-US service is down or busy. Try again later.'));
+      body.append(box);
+    }
+    if (!hit && !pub.length && !down.length && !pubDown) {
       const box = el('section', 'own-sec');
       box.append(el('span', 'own-chip', 'Private land'));
       box.append(el('b', 'own-title', 'No public land here'));
