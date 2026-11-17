@@ -87,14 +87,16 @@ using only free public records:
 | What | Source | Coverage |
 |---|---|---|
 | Public land shading, by managing agency | [BLM Surface Management Agency](https://www.blm.gov/services/geospatial) map tiles | All US |
-| Public land details on click (unit, manager, public access) | [USGS PAD-US 4.1](https://www.usgs.gov/programs/gap-analysis-project/science/pad-us-data-overview) | All US |
+| Public land details on click (unit, manager, public access) | [USGS PAD-US 4.1](https://www.usgs.gov/programs/gap-analysis-project/science/pad-us-data-overview) (falls back across USGS's copies when one is over its shared rate limit) | All US |
 | Parcel lines | [State of Colorado public parcels](https://gis.colorado.gov/public/rest/services/Address_and_Parcel) | 44 of Colorado's 64 counties |
-| Parcel owner, address, acres, parcel ID on click | Statewide parcel services | Colorado, Wisconsin, North Carolina, Florida, Vermont, Montana, Massachusetts |
+| Parcel owner, address, acres, parcel ID on click | Statewide parcel services | Colorado, Wisconsin, North Carolina, Florida, Vermont, Montana, Massachusetts, Connecticut, Texas, Arkansas; New York (about two thirds of counties share owners); Tennessee (all but Davidson, Shelby, Knox, Hamilton, Rutherford, Williamson, Montgomery, Chester and Hickman counties) |
+| Parcel address, acres, parcel ID on click, no owner name | Statewide parcel services | New Jersey (owner names withheld by state law); Maryland (links to the state assessment record, which lists the owner) |
 
 Click any land to see who owns or manages it; the parcel is outlined in red.
 There is no free nationwide parcel source with owner names, so elsewhere
 you'll see public land only. More states can be added to the `STATES` list in
-`ownership.js`: each needs a keyless ArcGIS query URL and a field mapping.
+`ownership.js`: each needs a keyless ArcGIS query URL and a field mapping
+(Texas shows how to use a service that only allows `identify`).
 Parcel records are public records, not surveys. Colorado's data asks for
 attribution with the date accessed, which the popup shows.
 

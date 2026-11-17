@@ -4,14 +4,19 @@
 //   - Public land shading: BLM Surface Management Agency map tiles (all US).
 //   - Public land details on click: USGS PAD-US 4.1 (all US).
 //   - Parcel owners on click: statewide parcel services that publish owner
-//     names (Colorado, Wisconsin, North Carolina, Florida, Vermont, Montana,
-//     Massachusetts). There is no free nationwide source with owner names.
+//     names (see STATES). There is no free nationwide source with owner names.
+//     New Jersey and Maryland publish parcels but have removed owner names.
 //   - Parcel lines: Colorado's statewide parcel map (44 of 64 counties).
 //
 // Nothing loads until the layer is switched on.
 
 const BLM = 'https://gis.blm.gov/arcgis/rest/services/lands/BLM_Natl_SMA_Cached_without_PriUnk/MapServer';
-const PADUS = 'https://services.arcgis.com/v01gqwM5QqNysAAi/arcgis/rest/services/Manager_Name_PADUS/FeatureServer/0';
+// USGS publishes PAD-US as several services with the same records. Each one
+// allows only 60 heavy lookups a minute across all its users, so if one is
+// over its limit the next is tried.
+const PADUS_BASE = 'https://services.arcgis.com/v01gqwM5QqNysAAi/arcgis/rest/services';
+const PADUS = ['Manager_Name_PADUS', 'Manager_Type_PADUS', 'PADUS_Management_Areas']
+  .map((name) => `${PADUS_BASE}/${name}/FeatureServer/0`);
 const CO_PARCELS = 'https://gis.colorado.gov/public/rest/services/Address_and_Parcel/Colorado_Public_Parcels/MapServer';
 
 // Agency colors exactly as the BLM tiles draw them.
@@ -122,6 +127,84 @@ const STATES = [
       owner: p.OWNER1, address: join(p.SITE_ADDR, p.CITY), id: p.MAP_PAR_ID || p.LOC_ID, use: p.USE_DESC,
     }),
   },
+  {
+    state: 'Connecticut', bbox: [-73.73, 40.98, -71.79, 42.05],
+    url: 'https://services3.arcgis.com/3FL1kr7L4LvwA2Kb/arcgis/rest/services/Connecticut_CAMA_and_Parcel_Layer/FeatureServer/0',
+    credit: 'CT Office of Policy and Management / CT GIS Office',
+    map: (p) => ({
+      owner: p.Owner, owner2: p.Co_Owner, address: join(p.Location_1, p.Property_City || p.Town_Name), acres: p.Land_Acres,
+      id: p.Parcel_ID, use: p.State_Use_Description,
+    }),
+  },
+  {
+    state: 'New York', bbox: [-79.76, 40.5, -71.85, 45.02],
+    url: 'https://services6.arcgis.com/EbVsqZ18sv1kVJ3k/arcgis/rest/services/NYS_Tax_Parcels_Public/FeatureServer/1',
+    credit: 'NYS ITS Geospatial Services / county real property offices',
+    map: (p) => ({
+      owner: p.PRIMARY_OWNER, owner2: p.ADD_OWNER, address: join(p.PARCEL_ADDR, p.CITYTOWN_NAME || p.MUNI_NAME),
+      acres: p.ACRES || p.CALC_ACRES, id: p.PRINT_KEY || p.SWIS_SBL_ID, county: p.COUNTY_NAME && `${p.COUNTY_NAME} County`,
+      use: p.USED_AS_DESC,
+    }),
+    // About two thirds of counties share owner names.
+    noOwner: 'Owner not shared by this county',
+  },
+  {
+    state: 'New Jersey', bbox: [-75.56, 38.93, -73.89, 41.36],
+    url: 'https://services2.arcgis.com/XVOqAjTOJ5P6ngMu/arcgis/rest/services/Parcels_Composite_NJ_WM/FeatureServer/0',
+    credit: 'NJ Office of GIS, Parcels & MOD-IV Composite',
+    map: (p) => ({
+      owner: p.OWNER_NAME, address: join(p.PROP_LOC, p.MUN_NAME && titleCase(p.MUN_NAME)), acres: p.CALC_ACRE,
+      id: p.PAMS_PIN, county: p.COUNTY && `${titleCase(p.COUNTY)} County`,
+    }),
+    noOwner: 'Owner names withheld under New Jersey law',
+    withheld: true,
+  },
+  {
+    state: 'Maryland', bbox: [-79.49, 37.89, -75.05, 39.72],
+    url: 'https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre/MD_ParcelBoundaries/MapServer/0',
+    credit: 'Maryland Department of Planning / SDAT, MD iMAP',
+    map: (p) => ({
+      address: join(p.ADDRESS, p.CITY && titleCase(p.CITY)), acres: p.ACRES || p.POLYACRES, id: p.ACCTID,
+      use: p.DESCLU, link: p.SDATWEBADR,
+    }),
+    noOwner: 'Owner is listed on the state record',
+    withheld: true,
+    linkLabel: 'State assessment record, with owner ↗',
+  },
+  {
+    state: 'Tennessee', bbox: [-90.31, 34.98, -81.65, 36.68],
+    url: 'https://services1.arcgis.com/YuVBSS7Y1of2Qud1/arcgis/rest/services/Tennessee_Property_Boundaries_Public_Use/FeatureServer/0',
+    credit: 'State of Tennessee, Office of Information Resources / Comptroller of the Treasury',
+    // Not included: Davidson, Shelby, Knox, Hamilton, Rutherford, Williamson,
+    // Montgomery, Chester and Hickman counties.
+    map: (p) => ({
+      owner: p.OWNER, owner2: p.OWNER2, address: p.ADDRESS, acres: p.DEEDAC || null, id: p.PARCELID,
+      county: p.COUNTY_NAME && `${p.COUNTY_NAME} County`, link: p.LINK_TPAD,
+    }),
+    linkLabel: 'State assessment record ↗',
+  },
+  {
+    state: 'Arkansas', bbox: [-94.62, 33.0, -89.64, 36.5],
+    url: 'https://gis.arkansas.gov/arcgis/rest/services/FEATURESERVICES/Planning_Cadastre/FeatureServer/6',
+    credit: 'Arkansas GIS Office / County Assessor Mapping Program',
+    map: (p) => ({
+      owner: p.ownername, address: join(p.adrlabel, p.adrcity && titleCase(p.adrcity)),
+      acres: p.Shape__Area ? p.Shape__Area / 4046.86 : null, id: p.parcelid, county: p.county && `${p.county} County`,
+    }),
+  },
+  {
+    state: 'Texas', bbox: [-106.65, 25.84, -93.51, 36.5],
+    url: 'https://feature.geographic.texas.gov/arcgis/rest/services/Parcels/stratmap_land_parcels_48_most_recent/MapServer',
+    credit: 'TxGIO StratMap Land Parcels; county appraisal districts',
+    // This service only answers "identify", not "query".
+    query: identifyPoint,
+    map: (p) => ({
+      owner: p.OWNER_NAME, owner2: p.NAME_CARE !== p.OWNER_NAME ? p.NAME_CARE : null,
+      address: join(String(p.SITUS_ADDR || '').replace(/[,\s]+TX\b.*$/, ''), p.SITUS_CITY && titleCase(p.SITUS_CITY)),
+      acres: Number(p.GIS_AREA) || Number(p.LEGAL_AREA) || null, id: p.PROP_ID || p.GEO_ID,
+      county: p.COUNTY && `${titleCase(p.COUNTY)} County`, use: p.STAT_LAND_USE || p.LOC_LAND_USE,
+    }),
+  },
 ];
 
 // Wisconsin property class codes.
@@ -135,6 +218,7 @@ const WI_CLASS = {
 function join(...parts) {
   return parts.filter((s) => s && String(s).trim()).map((s) => String(s).trim()).join(', ');
 }
+const listOf = (a) => (a.length > 1 ? `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}` : a.join(''));
 function titleCase(s) {
   return String(s).toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -179,6 +263,48 @@ async function queryPoint(url, lngLat, { geometry = true, signal } = {}) {
   return data.features || [];
 }
 
+async function queryPadus(lngLat, { signal } = {}) {
+  let err;
+  for (const url of PADUS) {
+    try {
+      const fs = await queryPoint(url, lngLat, { geometry: false, signal });
+      for (const f of fs) f.properties.GIS_Acres ??= f.properties.GIS_AcreD;
+      return fs;
+    } catch (e) {
+      if (signal?.aborted) throw e;
+      err = e;
+    }
+  }
+  throw err;
+}
+
+// For map services that allow "identify" but not "query" (Texas). Returns
+// GeoJSON-like features, like queryPoint.
+async function identifyPoint(url, lngLat, { signal } = {}) {
+  const d = 0.0005; // a tight extent keeps the 1-pixel tolerance about 1 m
+  const params = new URLSearchParams({
+    geometry: `${lngLat.lng},${lngLat.lat}`,
+    geometryType: 'esriGeometryPoint',
+    sr: '4326',
+    layers: 'all:0',
+    tolerance: '1',
+    mapExtent: [lngLat.lng - d, lngLat.lat - d, lngLat.lng + d, lngLat.lat + d].join(','),
+    imageDisplay: '100,100,96',
+    returnGeometry: 'true',
+    f: 'json',
+  });
+  const res = await fetch(`${url}/identify?${params}`, { signal });
+  if (!res.ok) throw new Error(`${res.status}`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message || 'identify failed');
+  return (data.results || []).map((r) => {
+    const properties = {};
+    for (const [k, v] of Object.entries(r.attributes || {})) properties[k] = v === 'Null' || v === '' ? null : v;
+    const rings = r.geometry?.rings;
+    return { type: 'Feature', properties, geometry: rings ? { type: 'Polygon', coordinates: rings } : null };
+  });
+}
+
 // Outline-only rendering of Colorado's parcels, drawn by the state's server.
 function coParcelTiles() {
   const dynamicLayers = JSON.stringify([{
@@ -198,6 +324,17 @@ function coParcelTiles() {
   return `${CO_PARCELS}/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&dpi=192` +
     `&format=png32&transparent=true&f=image&dynamicLayers=${encodeURIComponent(dynamicLayers)}`;
 }
+
+// Parcel line maps, drawn when zoomed in close. Each is a free raster service
+// limited to its own area. Owner lookups (STATES above) are separate: Europe
+// has parcel lines but no public owner names.
+const PARCEL_LINES = [
+  {
+    id: 'co', name: 'Colorado', bbox: [-109.07, 36.99, -102.04, 41.01], tiles: [coParcelTiles()],
+    tileSize: 256, minzoom: 14, credit: 'State of Colorado public parcels',
+  },
+];
+const parcelLayerIds = PARCEL_LINES.map((p) => `parcels-${p.id}`);
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -222,15 +359,17 @@ export function initOwnership(map, { onChange } = {}) {
       attribution: 'Public land <a href="https://www.blm.gov/services/geospatial" target="_blank">BLM</a>, ' +
         '<a href="https://www.usgs.gov/programs/gap-analysis-project/science/pad-us-data-overview" target="_blank">USGS PAD-US</a>',
     });
-    map.addSource('co-parcels', {
-      type: 'raster',
-      tiles: [coParcelTiles()],
-      tileSize: 256,
-      minzoom: 14,
-      maxzoom: 20,
-      bounds: STATES[0].bbox,
-      attribution: `Parcels: ${STATES[0].credit}`,
-    });
+    for (const p of PARCEL_LINES) {
+      map.addSource(`parcels-${p.id}`, {
+        type: 'raster',
+        tiles: p.tiles,
+        tileSize: p.tileSize,
+        minzoom: p.minzoom,
+        maxzoom: p.maxzoom ?? 20,
+        bounds: p.bbox,
+        attribution: `Parcels: ${p.credit}`,
+      });
+    }
     map.addSource('own-pick', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
 
     map.addLayer({
@@ -243,13 +382,18 @@ export function initOwnership(map, { onChange } = {}) {
         'raster-fade-duration': 150,
       },
     }, 'water');
-    map.addLayer({
-      id: 'co-parcels',
-      type: 'raster',
-      source: 'co-parcels',
-      minzoom: 14,
-      paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.6, 0.75, 17, 0.9] },
-    }, 'hood-outline');
+    for (const p of PARCEL_LINES) {
+      map.addLayer({
+        id: `parcels-${p.id}`,
+        type: 'raster',
+        source: `parcels-${p.id}`,
+        minzoom: p.minzoom,
+        paint: {
+          'raster-opacity': ['interpolate', ['linear'], ['zoom'], p.minzoom, 0, p.minzoom + 0.6, 0.75, 17, 0.9],
+          'raster-fade-duration': 150,
+        },
+      }, 'hood-outline');
+    }
     map.addLayer({
       id: 'own-pick-fill',
       type: 'fill',
@@ -266,7 +410,7 @@ export function initOwnership(map, { onChange } = {}) {
   }
 
   function setVisible(v) {
-    for (const id of ['public-land', 'co-parcels', 'own-pick-fill', 'own-pick-line']) {
+    for (const id of ['public-land', ...parcelLayerIds, 'own-pick-fill', 'own-pick-line']) {
       if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', v ? 'visible' : 'none');
     }
   }
@@ -297,7 +441,7 @@ export function initOwnership(map, { onChange } = {}) {
       .map((f) => ({ f, p: state.map(f.properties || {}), area: acresOf(f.geometry) }))
       .sort((a, b) => a.area - b.area);
     const first = recs[0].p;
-    const owners = [...new Set(recs.map((r) => r.p.owner).filter(Boolean))];
+    const owners = [...new Set(recs.map((r) => String(r.p.owner || '').trim()).filter(Boolean))];
     const n = recs.length;
     let chip = 'Parcel';
     if (n > 1) {
@@ -306,8 +450,9 @@ export function initOwnership(map, { onChange } = {}) {
       chip = sameId ? `1 parcel · ${n} tax accounts` : sameShape ? `${n} units share this lot` : `${n} overlapping parcels`;
     }
     box.append(el('span', 'own-chip', chip));
-    box.append(el('b', 'own-title', owners[0] || 'Owner not listed'));
-    if (first.owner2 && owners.length === 1) box.append(el('div', 'own-sub', first.owner2));
+    box.append(el('b', 'own-title', owners[0] || state.noOwner || 'Owner not listed'));
+    const owner2 = String(first.owner2 || '').trim();
+    if (owner2 && owners.length === 1) box.append(el('div', 'own-sub', owner2));
     if (owners.length > 1) {
       const more = el('details', 'own-more');
       more.append(el('summary', null, `+ ${owners.length - 1} more owner${owners.length > 2 ? 's' : ''} of record`));
@@ -327,7 +472,7 @@ export function initOwnership(map, { onChange } = {}) {
     row('Use', first.use && titleCase(first.use));
     box.append(dl);
     if (first.link && /^https?:\/\//.test(first.link)) {
-      const a = el('a', 'own-link', 'County assessor record ↗');
+      const a = el('a', 'own-link', state.linkLabel || 'County assessor record ↗');
       a.href = first.link;
       a.target = '_blank';
       a.rel = 'noopener';
@@ -372,10 +517,10 @@ export function initOwnership(map, { onChange } = {}) {
     const inBox = (b) => lngLat.lng >= b[0] && lngLat.lng <= b[2] && lngLat.lat >= b[1] && lngLat.lat <= b[3];
     const states = STATES.filter((s) => inBox(s.bbox));
     let [parcels, pub] = await Promise.all([
-      Promise.all(states.map((s) => queryPoint(s.url, lngLat, { signal })
+      Promise.all(states.map((s) => (s.query || queryPoint)(s.url, lngLat, { signal })
         .then((fs) => ({ state: s, features: fs }))
         .catch(() => ({ state: s, features: [], failed: true })))),
-      queryPoint(PADUS, lngLat, { geometry: false, signal }).catch(() => null),
+      queryPadus(lngLat, { signal }).catch(() => null),
     ]);
     if (signal.aborted) return;
     // A server being down is not the same as "nothing here"; say which it is.
@@ -426,7 +571,7 @@ export function initOwnership(map, { onChange } = {}) {
       box.append(el('b', 'own-title', 'No public land here'));
       box.append(el('div', 'own-sub', states.length
         ? 'No parcel record was found at this spot.'
-        : 'Free owner records aren’t available for this area. They are for Colorado, Wisconsin, North Carolina, Florida, Vermont, Montana and Massachusetts.'));
+        : `Free owner records aren’t available for this area. They are for ${listOf(STATES.filter((x) => !x.withheld).map((x) => x.state))}.`));
       body.append(box);
     }
   }
